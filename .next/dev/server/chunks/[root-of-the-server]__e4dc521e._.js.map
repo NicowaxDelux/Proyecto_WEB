@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 22, "column": 0}, "map": {"version":3,"sources":["file:///home/nicow/proyectos/proyecto_web/src/pages/api/products/index.ts"],"sourcesContent":["import type { NextApiRequest, NextApiResponse } from \"next\";\nimport { PrismaClient } from \"@prisma/client\";\n\nconst prisma = new PrismaClient();\n\nexport default async function handler(req: NextApiRequest, res: NextApiResponse) {\n  try {\n    if (req.method === \"GET\") {\n      const products = await prisma.product.findMany({ orderBy: { createdAt: \"desc\" } });\n      return res.status(200).json(products);\n    }\n    return res.status(405).json({ error: \"Method not allowed\" });\n  } catch (error) {\n    console.error(error);\n    return res.status(500).json({ error: \"Server error\" });\n  }\n}\n"],"names":[],"mappings":";;;;AACA;;AAEA,MAAM,SAAS,IAAI,6IAAY;AAEhB,eAAe,QAAQ,GAAmB,EAAE,GAAoB;IAC7E,IAAI;QACF,IAAI,IAAI,MAAM,KAAK,OAAO;YACxB,MAAM,WAAW,MAAM,OAAO,OAAO,CAAC,QAAQ,CAAC;gBAAE,SAAS;oBAAE,WAAW;gBAAO;YAAE;YAChF,OAAO,IAAI,MAAM,CAAC,KAAK,IAAI,CAAC;QAC9B;QACA,OAAO,IAAI,MAAM,CAAC,KAAK,IAAI,CAAC;YAAE,OAAO;QAAqB;IAC5D,EAAE,OAAO,OAAO;QACd,QAAQ,KAAK,CAAC;QACd,OAAO,IAAI,MAAM,CAAC,KAAK,IAAI,CAAC;YAAE,OAAO;QAAe;IACtD;AACF"}}]
+}
