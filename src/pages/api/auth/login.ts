@@ -40,6 +40,7 @@ import { prisma } from "../../../lib/prisma";
             {
                 userId: user.id,
                 email: user.email,
+                role: user.role
             },
             process.env.JWT_SECRET as string,
             {
