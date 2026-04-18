@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fondo elegante */
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Animaciones suaves globales */
+* {
+  @apply transition-all duration-200 ease-in-out;
+}
