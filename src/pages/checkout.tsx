@@ -1,4 +1,3 @@
-import { stringify } from "node:querystring";
 import { useState } from "react";
 
 export default function Checkout() {
