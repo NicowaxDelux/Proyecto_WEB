@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar"
+import Hero from "../components/Hero"
+import ProductCard from "../components/ProductCard";
 
 type Product = {
     id: number;
@@ -12,13 +14,13 @@ export default function Home() {
 
     //estado para guardar productos
 
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState([]);
 
     //se ejecuta cuando caga la pagina
     useEffect(() => {
         fetch("api/products")
         .then(res => res.json())
-        .then(data => setProducts(data));
+        .then(setProducts);
     },[]);
 
     //funcion de agragar el carrito
@@ -46,37 +48,27 @@ export default function Home() {
         <div>
 
             <Navbar />
+            <Hero />
 
-            <div className="p-10">
+                <section id="productos" className="p-12">
 
-                <h1 className="text text-4xl font-bold mb-10">
-                  Nueva Colección 👕
-                </h1>
+                    <h2 className="text-3xl font-bold mb-8">
+                        Productos destacados
+                    </h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-                    {products.map(product => (
-                        <div key={product.id}
-                            className="bg-white rounded-2x1 shadow-md p-4 hover: shadow-x1 hover:-translate-y-2" >
+                    <div className="grid md:grid-cols-3 gap-8">
 
-                            <img src={ product.imageUrl || "/placeholder.png"}
-                            className="rounded-x1 h-60 w-full object-cover"/>
-                            <h2 className="text-xl font-semibold mt-4"
-                            >{product.name}
-                            </h2>
+                        {products.map((p: any) => (
+                            <ProductCard
+                                key={p.id}
+                                product={p}
+                                addToCart={addToCart}
+                            />
+                        ))}
 
-                            <p className="text-gray-500"
-                            >${product.price}
-                            </p>
+                    </div>
 
-                            <button onClick={() => addToCart(product.id)}
-                                className="mt-4 w-full bg-black text-white py-2 rounded-xl hover:bg-gray-800">
-                                Agregar carrito
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </div>
+                </section>
         </div>
     );  
 }
