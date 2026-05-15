@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
+import BackButton from "../components/BackButton"
 
 export default function Cart() {
 
@@ -18,27 +19,38 @@ export default function Cart() {
     }, []);
 
     return (
-        <div className="p-10">
-            <h1 className="text-3x1 font-bold mb-6">
-                Tu carrito 🛒
-            </h1>
-            
-            {cart.map(item =>(
-                <div key={item.id}
-                    className="bg-white p-4  rounded-x1 shadow flex justify-between items-center mb-4">
-                    
-                    <div>
-                        <h2>{item.product.name}</h2>
-                        <p className="text-gray-500">
-                            Cantidad: {item.quantity}
-                        </p>
-                    </div>
 
-                    <p className="font-bold">
-                        ${item.product.price * item.quantity}
-                    </p>
+        <div>
+
+            <Navbar />
+
+            <div>
+                <BackButton />
+
+                <div className="p-10">
+                    <h1 className="text-3x1 font-bold mb-6">
+                        Tu carrito 🛒
+                    </h1>
+                    
+                    {cart.map(item =>(
+                        <div key={item.id}
+                            className="bg-white p-4  rounded-x1 shadow flex justify-between items-center mb-4">
+                            
+                            <div>
+                                <h2>{item.product.name}</h2>
+                                <p className="text-gray-500">
+                                    Cantidad: {item.quantity}
+                                </p>
+                            </div>
+
+                            <p className="font-bold">
+                                ${item.product.price * item.quantity}
+                            </p>
+                        </div>
+                    ))}
                 </div>
-            ))}
+
+            </div>
         </div>
     );
 }
