@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar"
 import Hero from "../components/Hero"
 import ProductCard from "../components/ProductCard";
+import toast from "react-hot-toast";
+import { useCart } from "../context/CartContext";   
 
 type Product = {
     id: number;
@@ -16,7 +18,9 @@ export default function Home() {
 
     const [products, setProducts] = useState([]);
 
-    //se ejecuta cuando caga la pagina
+    const {openCart, refreshCart} = useCart();
+
+    //se ejecuta cuando carga la pagina
     useEffect(() => {
         fetch("api/products")
         .then(res => res.json())
@@ -41,7 +45,9 @@ export default function Home() {
             }),
         });
 
-        alert("Producdo agregado 🛒");
+        await refreshCart();
+        openCart();
+        toast.success("Producto agregado 🛒")
     };
 
     return (
@@ -56,7 +62,7 @@ export default function Home() {
                         Productos destacados
                     </h2>
 
-                    <div className="grid md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
                         {products.map((p: any) => (
                             <ProductCard
