@@ -8,7 +8,7 @@ export default function ProductCard ({product, addToCart}: any) {
         >
             <img 
                 src={product.imageUrl || "placeholder.png"} 
-                className="h-72 w-full object-cover"
+                className="h-60  md:h-72 w-full object-cover"
             />
 
             <div className="p-4">
@@ -20,12 +20,17 @@ export default function ProductCard ({product, addToCart}: any) {
                     ${product.price}                    
                 </p>|
 
-                <button
-                    onClick={()=> addToCart(product.id)}
-                    className="mt-4 w-full bg-black text-white py-2 rounded-x1 hover:bg-gray-800"
+                <motion.button
+                    whileTap={{ scale:0.9}}
+                    whileHover={{ scale:1.03}}
+
+                    onClick={() => addToCart(product.id)}
+                    className= "mt-4 w-full bg-black text-white py-2 rounded-x1 hover:bg-gray-800"
                 >
                     Agregar al carrito
-                </button>
+                </motion.button>
+
+        
             </div>
         </motion.div>
     );
