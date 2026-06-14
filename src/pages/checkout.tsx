@@ -49,11 +49,11 @@ export default function Checkout() {
 
             <Navbar />
             
-            <div className="p-10 max-w-x1 mx-auto">
+            <div className="p-4 md:p-10 w-full max-w-xl mx-auto">
 
                 <BackButton />
 
-                <h1 className="text-3x1 font-bold mb-6">
+                <h1 className="text-3xl font-bold mb-6">
                     Checkout
                 </h1>
 
