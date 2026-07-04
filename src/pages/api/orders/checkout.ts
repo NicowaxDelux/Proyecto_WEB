@@ -23,7 +23,7 @@ export default async function handler(
 
     //Validar que el carrito no esté vacío
     if  (cartItems.length === 0){
-        res.status(400).json({message: 'Carrito vacío'});
+        return res.status(400).json({message: 'Carrito vacío'});
     }
     
     //calcular total
