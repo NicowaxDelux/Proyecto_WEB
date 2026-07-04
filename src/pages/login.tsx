@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import BackButton from "../components/BackButton"
+import toast from "react-hot-toast";
 
 export default function Login() {
 
@@ -31,7 +32,7 @@ export default function Login() {
         };
 
 
-        alert("Login exitoso 🔐");
+        toast.success("Login exitoso 🔐");
     };
 
     return (
