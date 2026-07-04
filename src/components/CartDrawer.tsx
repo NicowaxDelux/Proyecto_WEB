@@ -1,7 +1,10 @@
 import {motion, AnimatePresence} from 'framer-motion';
 import {useCart} from '../context/CartContext';
+import { useRouter } from 'next/router';
 
 export default function CartDrawer() {
+
+    const router = useRouter();
 
     const {
         isOpen, 
@@ -187,7 +190,8 @@ export default function CartDrawer() {
                                 Total: ${totalPrice}
                             </h2>
 
-                            <button className="w-full bg-black text-white py-3 rounded-x1 hover:bg-gray-800">
+                            <button className="w-full bg-black text-white py-3 rounded-x1 hover:bg-gray-800" 
+                                    onClick= {() => router.push("/checkout")}>
 
                                 Ir al checkout
                             </button>
