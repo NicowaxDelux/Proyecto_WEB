@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
 import { verifyToken } from "../../../middleware/auth";
-import crypto from "crypto";
-
 
 
 export default async function handler (
@@ -10,51 +8,55 @@ export default async function handler (
     res: NextApiResponse
 ){
 
-    //Verificar Usuario
-    if (!verifyToken(req, res)) return;
-    
+   if(req.method !== "POST") {
 
-    //obtener user del request
-    const user = (req as any).user;
-
-    //obtener lo datos del frontend 
-    const { orderId, provider } = req.body;
+        return res.status(405).json({ message: "Metodo no permitido"});
+   } 
 
 
-    //verificar que la orden pertenece al usuario
-    const order = await prisma.order.findFirst({
-        where: { 
-            id: Number(orderId),     
-            userId: user.userId,
-        },
-    });
+   try {
 
-    if(!order){
-        res.status(404).json({message:'Ordeb no encontrada'});
-    }
+        const user =  verifyToken( req, res);
 
-    //generar ID simulando pasarela externa
-    const providerPaymentId = crypto.randomUUID();
+        if(!user) {
+            return;
+        }
 
-    //crear pago
-    const payment = await prisma.payment.create({
-        data: {
-            orderId: order.id,
-            provider,
-            providerPaymentId,
-            status: "PENDING",
-            amount: order.totalAmount,
-        },
-    });
 
-    //en producción aqui redirigiras a nequi SDK
-    res.json({
-        message: 'Pago iniciado',
-        payment, 
-        instructions: {
-            provider,
-            reference: providerPaymentId,
-            amount: order.totalAmount,
-        },
-    });
+        const {orderId, provider} = req.body;
+
+        console.log( "Body", req.body);
+        console.log("OrderId", orderId);
+
+        const order = await prisma.order.findUnique({
+
+            where: {
+                id: Number(orderId)
+            }
+        });
+
+        if(!order) {
+            return res.status(404).json({message: "Orden no encontrada"})
+        }
+
+        const reference =  `ORD-${orderId}`;
+
+        const payment = await prisma.payment.create({
+            data: {
+                orderId: order.id,
+                provider,
+                amount: order.totalAmount,
+                status: "PENDIENTE",
+                reference,
+            },
+        });
+
+        return res.status(200).json({success: true, id: payment.id, reference});
+
+   }
+   catch (error) {
+
+        console.log(error);
+        return res.status(500).json({message: "Error al crear el pago"});
+   }
 }
