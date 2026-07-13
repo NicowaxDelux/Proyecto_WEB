@@ -23,7 +23,7 @@ import { prisma } from "../../../lib/prisma";
         //validamos que el usuario ingrese bien el correo,
         //si no existe credenciales invalidas
         if (!user) {
-            res.status(401).json({message: "Correo incorrecto"});
+             return res.status(401).json({message: "Correo incorrecto"});
         }
 
         //comparamos el password del body con el de la base de datos
@@ -32,7 +32,7 @@ import { prisma } from "../../../lib/prisma";
         //validamos que la contraseña sea correcta, 
         //si no existe credenciales invalidas
         if (!isValid) {
-            res.status(401).json({message: "Contraseña incorrecta"})
+            return res.status(401).json({message: "Contraseña incorrecta"})
         }
 
         //Generamos el token 
