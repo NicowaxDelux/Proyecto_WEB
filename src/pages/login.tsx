@@ -10,29 +10,55 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
+    //enviar credenciales al backend para logearse y recibir un token
     const handleLogin = async () => {
+        
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({email, password}),
+            });
 
-        const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({email, password}),
-        });
+            const data = await res.json();
 
-        const data = await res.json();
+            //Validar que el login fue exitoso 
+            if(!data.token) {
+                toast.error("Correo o contraseña incorrectas!");
+                return;
+            }
 
-        //guardar token
-        if(data.token){ 
+
+            //guardar token
             localStorage.setItem("token", data.token);
-            
-            router.push("/");
-        } else {
-            alert("Error al logearte")
-        };
+                
+            //consultar el perfil del usuario
+            const profileRes = await fetch("/api/profile", {
+                headers: {
+                    Authorization: `Bearer ${data.token}`,
+                },
+            });
 
+            const profileData = await profileRes.json();
 
-        toast.success("Login exitoso 🔐");
+            //obetener rol del usuario
+            const role = profileData.user.role;
+
+            toast.success("Login exitoso 🔐");
+
+            //redireccionar al usuario segun su rol
+            if(role === "ADMIN") {
+                router.push("/admin");
+            }else {
+                router.push("/");
+            }
+        }
+        catch (error) {
+            console.error(error)
+            toast.error("Error al iniciar sesión.")
+        }
     };
 
     return (
