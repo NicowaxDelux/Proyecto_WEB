@@ -50,7 +50,7 @@ export default function Login() {
 
             //redireccionar al usuario segun su rol
             if(role === "ADMIN") {
-                router.push("/admin");
+                router.push("/adminPage");
             }else {
                 router.push("/");
             }
