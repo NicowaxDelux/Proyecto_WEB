@@ -1,4 +1,4 @@
-import link from "next/link";
+import Link from "next/link";
 import {useRouter} from "next/router";
 
 import {
@@ -30,37 +30,37 @@ export default function AdminSidebar(){
         {
             name:"DashBoard",
             icon: <FaHome/>,
-            path: "/admin"
+            path: "/adminPage"
         },
 
         {
             name:"Productos",
             icon: <FaBox/>,
-            path: "admin/products"
+            path: "/adminPage/products"
         },
 
         {
             name:"Pedidos",
             icon: <FaClipboardList/>,
-            path: "/admin/orders"
+            path: "/adminPage/orders"
         },
 
         {
             name: "Pagos",
             icon: <FaMoneyBillWave/>,
-            path: "/admin/payments"
+            path: "/adminPage/payments"
         },
 
         {
             name: "Usuarios",
             icon: <FaUsers/>,
-            path: "/admin/users"
+            path: "/adminPage/users"
         },
 
         {
             name: "Configuracion",
             icon: <FaCog/>,
-            path: "/admin/settings"
+            path: "/adminPage/settings"
         }
     ];
 
@@ -87,7 +87,7 @@ export default function AdminSidebar(){
                 {
                     menu.map((item) => (
 
-                        <link 
+                        <Link 
                         
                             key={item.path}
 
@@ -109,7 +109,7 @@ export default function AdminSidebar(){
                                 {item.name}
                             </span>
                                 
-                        </link>
+                        </Link>
                     ))
                 }
 
