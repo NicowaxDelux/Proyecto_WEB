@@ -80,8 +80,6 @@ export default function AdminSidebar(){
 
             </div>
 
-            **MENU**
-
             <nav className= "flex-1 p-4">
 
                 {
@@ -114,8 +112,6 @@ export default function AdminSidebar(){
                 }
 
             </nav>
-
-            **FOOTER**
 
             <div className= "border-t p-4">
 
