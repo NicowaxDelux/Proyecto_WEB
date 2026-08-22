@@ -28,7 +28,7 @@ export default function AdminNavbar(){
                     </h1>
 
                     <p className= "text-gray-500 mt-1">
-                        Destiona productos, pedidos y ventas
+                        Gestiona productos, pedidos y ventas
                     </p>
 
                 </div>
