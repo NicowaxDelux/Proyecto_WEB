@@ -69,5 +69,12 @@ model Payment {
   providerPaymentId String  ?
   status            String
   amount            Int
+
+  //referencia el cliente
+  reference         String  ?
+
+  //url comprobante
+  receiptUrl         String  ?
+
   createdAt         DateTime  @default(now())
 }
