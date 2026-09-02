@@ -3,6 +3,7 @@ import {useRouter} from "next/router";
 import AdminLayout from "../../../components/Admin/AdminLayout";
 import toast from "react-hot-toast";
 import { error } from "node:console";
+import { CldUploadWidget } from "next-cloudinary";
 
 
 export default function CreateProduct() {
@@ -253,20 +254,76 @@ export default function CreateProduct() {
 
                     </label>
 
+                    <CldUploadWidget
+                    
+                        uploadPreset="Tienda_productos"
 
-                    <input
+                        onSuccess={(result) => {
 
-                            type="text"
+                            const info = result.info as {
+                                secure_url?: string;
+                            };
 
-                            value={imageUrl}
+                            if (info.secure_url) {
+                                setImageUrl(info.secure_url);
 
-                            onChange={(e) => setImageUrl(e.target.value)}
+                                toast.success("Imagen subida correctamente 📸");
+                            }
+                        }}
+                    >
 
-                            placeholder="https://..."
+                        {({open}) => (
 
-                            className="w-full border rounded-xl p-3 outline-none focus:ring-2 focus:ring-black"
-                            
-                    />
+                            <div className="border border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-black transition">
+
+                                {!imageUrl ? (
+
+                                    <button type="button" onClick={()=> open()} className="w-full py-10 text-gray-500 hover:text-black transition">
+
+                                        <div className="text-4xl mb-3">
+                                            📷
+                                        </div>
+
+                                        <p className="font-medium">
+                                            Subir Imagen
+                                        </p>
+
+                                        <p className="text-sm text-gray-400 mt-1">
+                                            JPG, PNG, WEBP
+                                        </p>
+
+                                    </button>
+                                ) : (
+
+                                    <div>
+                                        
+                                        <img 
+                                            src={imageUrl} 
+                                            alt="Vista previa" 
+                                            className="w-full max-h-80 object-contain rounded-xl"
+                                        />
+
+                                        <button type="button"onClick={()=> {setImageUrl("")}} className="mt-4 text-sm text-gray-500 hover:text-black">
+
+                                            Cambiar imagen  
+
+                                        </button>
+
+                                    </div>
+                                )}
+                                
+                            </div>
+                        )}
+
+                    </CldUploadWidget>
+
+                    <p className="text-xs text-gray-400 mt-2">
+
+                        Recomendado:
+                        imágenes verticales de buena calidad
+
+                    </p>
+
                 </div>
 
                 {/*Boton */}
