@@ -10,9 +10,11 @@ import {
 } from "react-icons/fa"
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 
 export default function AdminDashboard() {
 
+    const router = useRouter();
     /*
         Informacion del dashboard
     */
@@ -105,7 +107,7 @@ export default function AdminDashboard() {
 
                     <div className="flex gap-4 mt-6">
 
-                        <button className="bg-black text-white  px-6 py-3 rounded-xl hover:opacity-90 transition">
+                        <button onClick={() => router.push("/adminPage/products/create")} className="bg-black text-white  px-6 py-3 rounded-xl hover:opacity-90 transition">
 
                             <FaPlus className=" inline mr-2"/>
 
