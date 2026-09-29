@@ -64,6 +64,12 @@ export default function AdminSidebar(){
         }
     ];
 
+    const logout = () => {
+
+        localStorage.removeItem("token");
+        router.push("/login");
+    }
+
     return (
 
         <aside className= "w-72 bg-white border-r shadow-sm flex flex-col">
@@ -126,7 +132,7 @@ export default function AdminSidebar(){
                     </p>
                 </div>
 
-                <button className= "flex items-center gap-3 text-red-500 hover:text-red-700 trasition">
+                <button onClick={logout} className= "flex items-center gap-3 text-red-500 hover:text-red-700 trasition">
 
                     <FaSignOutAlt/>
                     cerrar sesión
