@@ -1,14 +1,46 @@
 import Link from "next/link"
 import { useCart } from "../context/CartContext"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router"; 
 
 export default function Navbar(){
 
     const {openCart , cartItems} = useCart();
 
+    const router = useRouter();
+
+    //indica si el usuario esta logeado
+    const [isLoggedIn, setIsloggedIn] = useState(false);
+
     const totalItems = cartItems.reduce(
         (acc, item) => acc + item.quantity,
         0
     );
+
+    //comprobamos que exista un JWT
+
+    useEffect(() => {
+        
+        const token = localStorage.getItem("token");
+
+        setIsloggedIn(!!token);
+
+    }, []);
+
+    //cerrar sesión
+
+    const handleLogout = () => {
+
+        //Eliminamos el JWt
+        localStorage.removeItem("token");
+
+        //actualizamos el navbar
+        setIsloggedIn(false);
+
+        //mandamos el usario al login
+        router.push("/login");
+        
+    }
 
     return (
         <nav className="w-full flex justify-between items-center px-8 py-4 bg-white shadow-sm  top-0 z-30">
@@ -39,10 +71,22 @@ export default function Navbar(){
                             </span>
                         )}
                     </button>
+                    
+                    {/* SI NO ESTA LOGUEADO */}
+                    
+                    {!isLoggedIn &&(
+                        <Link href="/login" className="text-sm md:text-base hover:text-black text-gray-500">
+                            Login
+                        </Link>
+                    )}
+                    
+                    {/* SI ESTA LOGUEADO */}
 
-                    <Link href="/login" className="text-sm md:text-base hover:text-black text-gray-500">
-                        Login
-                    </Link>
+                    {isLoggedIn && (
+                        <button onClick={handleLogout} className="text-sm md:text-base hover:text-black text-gray-500">
+                            Cerrar sesión
+                        </button>
+                    )}
 
                 </div>
             </div>
