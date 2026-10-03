@@ -162,11 +162,11 @@ export default function OrdersPage() {
                                         </option>
 
                                         <option value="PENDING_PAYMENT">
-                                            PAGO PENDIENTE
+                                            VIAJANDO AL DESTINO
                                         </option>
 
                                         <option value="PAID">
-                                            PAGADO
+                                            ENTREGADO
                                         </option>
 
                                         <option value="CANCELLED">
