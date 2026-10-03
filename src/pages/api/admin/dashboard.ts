@@ -43,9 +43,12 @@ export default async function handler(
     const totalOrders = await prisma.order.count();
 
     //total ventas
-    const totalSales = await prisma.order.aggregate({
+    const totalSales = await prisma.payment.aggregate({
         _sum: {
-            totalAmount: true
+            amount: true
+        },
+        where: {
+            status: "PAID"
         }
     });
 
@@ -70,7 +73,7 @@ export default async function handler(
 
         totalOrders,
 
-        totalSales: totalSales._sum.totalAmount || 0,
+        totalSales: totalSales._sum.amount || 0,
 
         lowStock
     });
