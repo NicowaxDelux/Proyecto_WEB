@@ -13,7 +13,7 @@ export default function Users() {
         const res = await fetch("/api/admin/users", {
 
             headers: {
-                Autorization: `Bearer${token}`
+                Authorization: `Bearer ${token}`
             }
         });
 
