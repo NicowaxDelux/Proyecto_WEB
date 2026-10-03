@@ -1,5 +1,6 @@
 import AdminLayout from "../../../components/Admin/AdminLayout";
 import {useEffect, useState} from "react";
+import { toast } from "react-hot-toast";
 
 export default function OrdersPage() {
 
@@ -21,6 +22,48 @@ export default function OrdersPage() {
             setOrders(data);
         }
     };
+    
+    const updateOrderStatus = async (orderId: number, newStatus: string) => {
+
+        const token = localStorage.getItem("token");
+        try {
+
+            const res = await fetch(`/api/admin/orders/${orderId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                toast.error("Error al actualizar el estado del pedido", data);
+
+                return;
+            }
+
+            // Actualizar solamente el pedido
+            // que acabamos de modificar.
+
+            setOrders((currentOrders) => currentOrders.map((order) => 
+
+                order.id === orderId? {
+                    ...order,
+                    status: data.order.status
+                }
+                : order
+            ));
+
+        } catch (error) {
+
+            console.error(error);
+            toast.error("Error al actualizar el estado del pedido");
+        }
+    };
+
 
     useEffect(() => {
         loadOrders();
@@ -101,12 +144,39 @@ export default function OrdersPage() {
 
                                 </td>
 
-                                <td className="p-5 text-gray-500">
+                                <td className="p-5">
 
-                                    {order.status}
+                                    <select
+                                        value={order.status}
+                                        onChange={(e) =>
+                                            updateOrderStatus(
+                                                order.id,
+                                                e.target.value
+                                            )
+                                        }
+                                        className="border rounded-lg px-3 py-2 bg-white text-sm outline-none focus:ring-2 focus:ring-black"
+                                    >
+
+                                        <option value="PENDING">
+                                            PENDIENTE
+                                        </option>
+
+                                        <option value="PENDING_PAYMENT">
+                                            PAGO PENDIENTE
+                                        </option>
+
+                                        <option value="PAID">
+                                            PAGADO
+                                        </option>
+
+                                        <option value="CANCELLED">
+                                            CANCELADO
+                                        </option>
+
+                                    </select>
 
                                 </td>
-
+                             
                                 <td className= "p-5 text-gray-500">
                                 
                                     {new Date(order.createdAt).toLocaleDateString()}
