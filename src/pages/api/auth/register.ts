@@ -30,7 +30,7 @@ export default async function handler(
             }
 
             //normalizar email
-            const normalizedEmail = email.trim().tolowerCase();
+            const normalizedEmail = email.trim().toLowerCase();
 
             //comprobar si el correo existe
             const existingUser = await prisma.user.findUnique({
