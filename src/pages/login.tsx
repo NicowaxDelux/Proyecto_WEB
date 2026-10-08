@@ -155,6 +155,23 @@ export default function Login() {
                             toast.error("No se pudo iniciar sesión con Google");
                         }}
                     />
+                    <div className="flex items-center gap-3 my-6">
+                        <div className="h-px bg-gray-300 flex-1"></div>
+
+                        <span className=" text-sm text-gray-500">
+                             o registrarte aqui
+                        </span>
+
+                        <div className="h-px bg-gray-300 flex-1"></div>
+                    </div>
+
+                    <button 
+                        onClick={()=> router.push("/register")}
+                        className="w-full bg-black text-white py-3 rounded-x1 hover:bg-yellow-600"
+                    >
+                        Registrarse
+                    </button>
+
 
                     </div>
                 </div>
