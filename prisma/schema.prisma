@@ -48,7 +48,7 @@ model Order {
   userId      Int
   totalAmount Int
   subtotal    Int       @default(0)
-  disCountAmount Int    @default(0)
+  discountAmount Int    @default(0)
   promoCode   String?
   status      String    @default("PENDING") // DRAFT, PENDING_PAYMENT, PAID, CANCELLED
   createdAt   DateTime  @default(now())
