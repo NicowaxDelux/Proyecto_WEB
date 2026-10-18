@@ -8,78 +8,156 @@ generator client {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  password  String?
-  role      String   @default("CLIENT")
-  welcomeCode String?
-  welcomeDiscountUsed Boolean @default(false)
-  createdAt DateTime @default(now())
-  orders    Order[]
-  cartItems CartItem[]
+  id                   Int        @id @default(autoincrement())
+  email                String     @unique
+  name                 String?
+  password             String?
+  role                 String     @default("CLIENT")
+
+  // Beneficio de primera compra.
+  welcomeCode          String?
+  welcomeDiscountUsed  Boolean    @default(false)
+
+  createdAt            DateTime   @default(now())
+
+  orders               Order[]
+  cartItems            CartItem[]
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
+  id          Int              @id @default(autoincrement())
   name        String
   description String?
   price       Int
-  stock       Int
+  stock       Int              @default(0)
   imageUrl    String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime         @default(now())
+
+  // Variantes disponibles de este producto.
+  variants    ProductVariant[]
+
+  // Se conservan las relaciones antiguas.
+  // Así podemos migrar el carrito gradualmente.
   cartItems   CartItem[]
   orderItems  OrderItem[]
 }
 
+model ProductVariant {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  size      String
+  color     String
+  stock     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+  orderItems OrderItem[]
+
+  // No permite duplicar la misma combinación
+  // de talla y color para un mismo producto.
+  @@unique([productId, size, color])
+  @@index([productId])
+}
+
 model CartItem {
-  id          Int       @id @default(autoincrement())
-  user        User      @relation(fields: [userId], references: [id])
-  userId      Int
-  product     Product   @relation(fields: [productId], references: [id])   
-  productId   Int
-  quantity    Int
-  addedAt     DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+
+  // Temporalmente opcional para mantener compatibles
+  // los artículos antiguos del carrito.
+  variantId Int?
+
+  quantity  Int
+  addedAt   DateTime @default(now())
+
+  user      User           @relation(fields: [userId], references: [id])
+  product   Product        @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 model Order {
-  id          Int       @id @default(autoincrement())
-  user        User      @relation(fields: [userId], references: [id])
-  userId      Int
-  totalAmount Int
-  subtotal    Int       @default(0)
-  discountAmount Int    @default(0)
-  promoCode   String?
-  status      String    @default("PENDING") // DRAFT, PENDING_PAYMENT, PAID, CANCELLED
-  createdAt   DateTime  @default(now())
-  orderItems  OrderItem[]
-  payment     Payment[] 
+  id             Int      @id @default(autoincrement())
+  userId         Int
+
+  // Valores monetarios en pesos colombianos.
+  subtotal       Int      @default(0)
+  discountAmount Int      @default(0)
+  promoCode      String?
+  totalAmount    Int
+
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+
+  // Datos de entrega. Opcionales para conservar
+  // las órdenes creadas antes de esta actualización.
+  recipientName  String?
+  phone          String?
+  department     String?
+  city           String?
+  address        String?
+  neighborhood   String?
+  deliveryNotes  String?
+
+  // Seguimiento del beneficio de primera compra.
+  // Permite restaurarlo una sola vez al cancelar.
+  welcomeDiscountConsumed Boolean @default(false)
+  welcomeDiscountRestored Boolean @default(false)
+
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  payment    Payment[]
+
+  @@index([userId])
+  @@index([status])
 }
 
 model OrderItem {
-  id          Int       @id @default(autoincrement())
-  order       Order     @relation(fields: [orderId], references: [id])
-  orderId     Int
-  product     Product   @relation(fields: [productId], references: [id])
-  productId   Int
-  quantity    Int
-  unitPrice   Int
+  id        Int @id @default(autoincrement())
+  orderId   Int
+  productId Int
+
+  // Opcional para no romper pedidos históricos.
+  variantId Int?
+
+  quantity  Int
+  unitPrice Int
+
+  // Copias de la variante en el momento de la compra.
+  // El pedido conservará la talla y el color originales
+  // aunque posteriormente cambie la variante del producto.
+  size      String?
+  color     String?
+
+  order     Order           @relation(fields: [orderId], references: [id])
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 model Payment {
-  id                Int       @id @default(autoincrement())
-  order             Order     @relation(fields: [orderId], references: [id])
-  orderId           Int      
+  id                Int      @id @default(autoincrement())
+  orderId           Int
   provider          String
-  providerPaymentId String  ?
+  providerPaymentId String?
   status            String
   amount            Int
 
-  //referencia el cliente
-  reference         String  ?
+  // Referencia del pago y URL del comprobante.
+  reference         String?
+  receiptUrl        String?
 
-  //url comprobante
-  receiptUrl         String  ?
+  createdAt         DateTime @default(now())
 
-  createdAt         DateTime  @default(now())
+  order             Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
 }
