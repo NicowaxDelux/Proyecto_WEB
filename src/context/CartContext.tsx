@@ -67,7 +67,11 @@ export function CartProvider({
             return;
         } 
             
-        const res = await fetch("api/cart",{
+        const res = await fetch("/api/cart",{
+            method: "GET",
+            cache: "no-store",
+
+            
             headers: {
                 Authorization: `Bearer ${token}`,
             }, 
