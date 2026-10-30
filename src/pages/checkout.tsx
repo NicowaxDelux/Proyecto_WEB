@@ -1,83 +1,153 @@
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import BackButton from "../components/BackButton";
 import toast from "react-hot-toast";
+import { useCart } from "../context/CartContext";
 
-// 1. CONFIGURACIÓN DE LOS MÉTODOS DE PAGO
-const paymentMethods = {
-    nequi: {
-        title: "Nequi",
-        number: "310 399 0818",
-    },
-    llaves: {
-        title: "Llaves",
-        number: "@310 399 0818",
-    },
-    bancolombia: {
-        title: "Bancolombia",
-        number: "123456789",
-    },
+// Estructura de los productos que devuelve /api/cart.
+type CheckoutItem = {
+    id: number;
+    quantity: number;
+    product: {
+        id: number;
+        name: string;
+        price: number;
+        imageUrl?: string | null;
+    };
+    variant: {
+        id: number;
+        size: string;
+        color: string;
+        stock: number;
+    } | null;
 };
 
-// 2. TIPO DE DATOS DE LA ORDEN
-
-// Definimos la estructura de la orden que devuelve
-// src/pages/api/orders/checkout.ts.
-type OrderData = {
+type CreatedOrder = {
     id: number;
     subtotal: number;
     discountAmount: number;
     promoCode: string | null;
     totalAmount: number;
+    orderItems: {
+        quantity: number;
+        unitPrice: number;
+        size: string | null;
+        color: string | null;
+        product: {
+            name: string;
+        };
+    }[];
 };
 
-// ======================================================
-// 3. COMPONENTE PRINCIPAL DEL CHECKOUT
-// ======================================================
-
 export default function Checkout() {
-    // Guarda la orden completa recibida desde el backend.
-    // Si todavía no se crea una orden, el valor será null.
-    const [order, setOrder] = useState<OrderData | null>(null);
-
-    // Guarda el método de pago seleccionado por el cliente.
-    const [provider, setProvider] = useState("");
-
-    // Evita que el usuario cree varias órdenes al mismo tiempo.
+    const [cartItems, setCartItems] = useState<CheckoutItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [creatingOrder, setCreatingOrder] = useState(false);
+    const [error, setError] = useState("");
 
-    // Evita enviar varias solicitudes de pago simultáneamente.
-    const [processingPayment, setProcessingPayment] = useState(false);
+    const { refreshCart } = useCart();
 
-    // 4. FORMATEAR PRECIOS EN PESOS COLOMBIANOS
-
-    const formatCOP = (amount: number) => {
-        return new Intl.NumberFormat("es-CO", {
+    // Formato de precios colombianos.
+    const formatCOP = (amount: number) =>
+        new Intl.NumberFormat("es-CO", {
             style: "currency",
             currency: "COP",
             maximumFractionDigits: 0,
         }).format(amount);
+
+    // Consultar el carrito sin crear ninguna orden.
+    const loadCart = async () => {
+        setLoading(true);
+        setError("");
+
+        try {
+            const token = localStorage.getItem("token");
+
+            if (!token) {
+                setError("Inicia sesión para continuar con tu compra.");
+                return;
+            }
+
+            const res = await fetch("/api/cart", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.message || "No se pudo consultar tu carrito.");
+                return;
+            }
+
+            if (!Array.isArray(data)) {
+                setError("No se pudo obtener la información del carrito.");
+                return;
+            }
+
+            setCartItems(data);
+        } catch (error) {
+            console.error("Error consultando carrito:", error);
+            setError("Ocurrió un error al cargar tu pedido.");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // 5. CREAR LA ORDEN
+    useEffect(() => {
+        loadCart();
+    }, []);
 
-    const createOrder = async () => {
-        // Evitamos solicitudes duplicadas mientras se procesa.
+    // Calcular el subtotal de los productos mostrados.
+    const subtotal = cartItems.reduce(
+        (total, item) =>
+            total + item.product.price * item.quantity,
+        0
+    );
+
+    // Comprobar que todos los productos tengan variante
+    // y que todavía exista stock suficiente.
+    const invalidItems = cartItems.filter(
+        (item) =>
+            !item.variant ||
+            item.variant.stock < item.quantity ||
+            item.quantity <= 0
+    );
+
+    const canCreateOrder =
+        cartItems.length > 0 &&
+        invalidItems.length === 0 &&
+        !creatingOrder;
+
+    // Crear la orden únicamente cuando el cliente lo solicite.
+    const sendOrderToWhatsApp = async () => {
         if (creatingOrder) return;
+
+        if (cartItems.length === 0) {
+            toast.error("Tu carrito está vacío.");
+            return;
+        }
+
+        if (invalidItems.length > 0) {
+            toast.error(
+                "Revisa las tallas, colores y existencias de tus productos."
+            );
+            return;
+        }
 
         setCreatingOrder(true);
 
         try {
-            // Recuperamos el JWT guardado cuando el usuario inició sesión.
             const token = localStorage.getItem("token");
 
-            // Sin token, el cliente debe iniciar sesión.
             if (!token) {
-                toast.error("Inicia sesión para continuar");
+                toast.error("Inicia sesión para continuar.");
                 return;
             }
 
-            // Solicitamos al backend que cree la orden.
+            // Aquí se crea la orden en la base de datos.
             const res = await fetch("/api/orders/checkout", {
                 method: "POST",
                 headers: {
@@ -86,385 +156,300 @@ export default function Checkout() {
                 },
             });
 
-            // Convertimos la respuesta del servidor a JSON.
-            const data = await res.json();
+            const data: CreatedOrder = await res.json();
 
-            // Si el backend devuelve un error, lo mostramos.
             if (!res.ok) {
                 toast.error(
-                    data.message || "No se pudo crear la orden"
+                    (data as any).message || "No se pudo crear el pedido."
                 );
+
+                // Actualizar el carrito por si cambió el stock.
+                await loadCart();
                 return;
             }
 
-            // Guardamos los valores calculados por el backend.
-            // No calculamos el descuento aquí para evitar diferencias
-            // entre el frontend y los valores oficiales de la orden.
-            setOrder({
-                id: data.id,
-                subtotal: data.subtotal,
-                discountAmount: data.discountAmount ?? 0,
-                promoCode: data.promoCode ?? null,
-                totalAmount: data.totalAmount,
-            });
+            // Construir el detalle real devuelto por el backend.
+            const productLines = data.orderItems.flatMap((item, index) => [
+                `${index + 1}. ${item.product.name}`,
+                `   Talla: ${item.size || "No especificada"}`,
+                `   Color: ${item.color || "No especificado"}`,
+                `   Cantidad: ${item.quantity}`,
+                `   Precio: ${formatCOP(item.unitPrice * item.quantity)}`,
+                "",
+            ]);
 
-            // Confirmamos que la orden se creó.
-            toast.success(`Orden #${data.id} creada correctamente`);
+            const messageText = [
+                "🛍️ NUEVO PEDIDO - MARTHA STORE",
+                "━━━━━━━━━━━━━━━━━━",
+                `🧾 Número de pedido: #${data.id}`,
+                "",
+                "📦 DETALLE DE MI PEDIDO",
+                ...productLines,
+                "━━━━━━━━━━━━━━━━━━",
+                `💰 Subtotal: ${formatCOP(data.subtotal)}`,
+                `🎁 Descuento: -${formatCOP(data.discountAmount)}`,
+                ...(data.promoCode
+                    ? [`🏷️ Código aplicado: ${data.promoCode}`]
+                    : []),
+                `✅ TOTAL: ${formatCOP(data.totalAmount)}`,
+                "━━━━━━━━━━━━━━━━━━",
+                "",
+                "Hola 👋 Acabo de enviar mi pedido desde Martha Store.",
+                "Quisiera continuar con la compra y recibir información sobre los métodos de pago disponibles.",
+                "",
+                "¡Gracias! 😊",
+            ].join("\n");
+
+            const whatsappUrl =
+                `https://wa.me/573103990818?text=${encodeURIComponent(messageText)}`;
+
+            // Sincronizar el contexto del carrito.
+            await refreshCart();
+
+            // Abrir WhatsApp con el pedido preparado.
+            window.location.href = whatsappUrl;
+
         } catch (error) {
-            // Capturamos errores de conexión u otros errores inesperados.
-            console.error("Error al crear la orden:", error);
-
-            toast.error("Ocurrió un error al crear la orden");
+            console.error("Error enviando pedido:", error);
+            toast.error("Ocurrió un error al preparar tu pedido.");
         } finally {
-            // Reactivamos el botón, incluso si ocurrió un error.
             setCreatingOrder(false);
         }
     };
 
-    // 6. REGISTRAR EL PAGO Y ABRIR WHATSAPP
-
-    const pay = async () => {
-        // No se puede pagar si todavía no existe una orden.
-        if (!order) {
-            toast.error("Primero debes crear la orden");
-            return;
-        }
-
-        // El cliente debe seleccionar un método de pago.
-        if (!provider) {
-            toast.error("Selecciona un método de pago");
-            return;
-        }
-
-        // Evitamos solicitudes de pago duplicadas.
-        if (processingPayment) return;
-
-        setProcessingPayment(true);
-
-        try {
-            // Recuperamos el token de autenticación.
-            const token = localStorage.getItem("token");
-
-            if (!token) {
-                toast.error("Inicia sesión para continuar");
-                return;
-            }
-
-            // Registramos el intento de pago en nuestra API.
-            // La API recibe orderId y provider, como en tu implementación.
-            const res = await fetch("/api/payments/create", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    orderId: order.id,
-                    provider,
-                }),
-            });
-
-            // Leemos la respuesta del backend.
-            const data = await res.json();
-
-            // Si no se pudo registrar el pago, detenemos el flujo.
-            if (!res.ok) {
-                toast.error(
-                    data.message || "No se pudo registrar el pago"
-                );
-                return;
-            }
-
-            // Usamos la referencia devuelta por la API.
-            // Si no existe, generamos una referencia visual alternativa.
-            const reference = data.reference || `ORD-${order.id}`;
-
-            // Obtenemos el nombre del método seleccionado.
-            const selectedMethod =
-                paymentMethods[
-                    provider as keyof typeof paymentMethods
-                ];
-
-            // Construimos el mensaje con los datos de la orden.
-            // encodeURIComponent permite enviar saltos de línea y emojis
-            // correctamente dentro de la URL de WhatsApp.
-            const messageText = [ 
-                    "🛍️ NUEVA ORDEN - MARTHA STORE",
-    "━━━━━━━━━━━━━━━━━━",
-    `🧾 Orden: #${order.id}`,
-    `💳 Método de pago: ${selectedMethod.title}`,
-    `🔖 Referencia: ${reference}`,
-    "",
-    `💰 Subtotal: ${formatCOP(order.subtotal)}`,
-    `🎁 Descuento: -${formatCOP(order.discountAmount)}`,
-    ...(order.promoCode
-        ? [`🏷️ Código aplicado: ${order.promoCode}`]
-        : []),
-    `✅ TOTAL A PAGAR: ${formatCOP(order.totalAmount)}`,
-    "━━━━━━━━━━━━━━━━━━",
-    "",
-    "Hola 👋 Ya realicé la transferencia de mi orden.",
-    "Adjuntaré el comprobante en este chat.",
-    "Gracias."
-            ].join("\n");
-
-            const message= encodeURIComponent(messageText);
-
-            // Abrimos WhatsApp con el número de atención del negocio
-            // y el mensaje preparado para enviar.
-            window.location.href =
-                `https://wa.me/573103990818?text=${message}`;
-        } catch (error) {
-            // Registramos errores inesperados para poder diagnosticarlos.
-            console.error("Error al procesar el pago:", error);
-
-            toast.error("Ocurrió un error al procesar el pago");
-        } finally {
-            // Reactivamos el botón después de terminar la solicitud.
-            setProcessingPayment(false);
-        }
-    };
-
-    // 7. INTERFAZ DEL CHECKOUT
-
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-gray-100">
-            {/* Barra de navegación de la tienda */}
             <Navbar />
 
-            <main className="mx-auto w-full max-w-3xl px-4 py-10 md:px-6 md:py-12">
-                {/* Botón para volver a la página anterior */}
+            <main className="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-12">
                 <BackButton />
 
-                {/* Encabezado de la página */}
                 <p className="mt-6 text-sm font-semibold uppercase tracking-[0.35em] text-gray-400">
                     Checkout
                 </p>
 
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl">
-                    Finaliza tu compra
+                    Tu pedido
                 </h1>
 
                 <p className="mt-3 text-gray-500">
-                    Revisa el valor de tu pedido y selecciona cómo quieres pagar.
+                    Revisa tus productos, tallas y colores antes de enviar
+                    tu pedido a nuestro equipo.
                 </p>
 
-                {/* Contenedor principal del proceso de compra */}
                 <section className="mt-8 space-y-6 rounded-3xl border border-gray-100 bg-white p-5 shadow-xl md:p-8">
 
-                    {/* ======================================
-                        7.1. VISTA INICIAL: CREAR LA ORDEN
-                    ====================================== */}
+                    {/* CARGANDO CARRITO */}
+                    {loading && (
+                        <div className="py-12 text-center">
+                            <p className="font-semibold text-gray-700">
+                                Cargando tu pedido...
+                            </p>
+                        </div>
+                    )}
 
-                    {!order && (
+                    {/* ERROR */}
+                    {!loading && error && (
+                        <div className="rounded-2xl bg-red-50 p-5 text-center">
+                            <p className="font-semibold text-red-700">
+                                {error}
+                            </p>
+
+                            <button
+                                onClick={loadCart}
+                                className="mt-4 rounded-full bg-black px-6 py-3 text-sm font-bold text-white"
+                            >
+                                Intentar nuevamente
+                            </button>
+                        </div>
+                    )}
+
+                    {/* CARRITO VACÍO */}
+                    {!loading && !error && cartItems.length === 0 && (
+                        <div className="py-12 text-center">
+                            <div className="text-5xl">🛍️</div>
+
+                            <h2 className="mt-4 text-xl font-bold text-gray-900">
+                                Tu carrito está vacío
+                            </h2>
+
+                            <p className="mt-2 text-sm text-gray-500">
+                                Agrega algunos productos para preparar tu pedido.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* PRODUCTOS DEL PEDIDO */}
+                    {!loading && !error && cartItems.length > 0 && (
                         <>
-                            <div className="rounded-2xl bg-gray-50 p-5">
-                                <h2 className="text-lg font-bold text-gray-900">
-                                    Tu pedido está casi listo
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Productos seleccionados
                                 </h2>
 
-                                <p className="mt-2 text-sm leading-6 text-gray-500">
-                                    Crea tu orden para calcular el subtotal,
-                                    aplicar el descuento disponible y conocer
-                                    el total a pagar.
+                                <p className="mt-1 text-sm text-gray-500">
+                                    {cartItems.length} producto(s) en tu pedido
                                 </p>
                             </div>
 
-                            {/* Este botón llama a createOrder */}
-                            <button
-                                onClick={createOrder}
-                                disabled={creatingOrder}
-                                className="w-full rounded-full bg-black px-6 py-4 font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {creatingOrder
-                                    ? "Creando orden..."
-                                    : "Crear mi orden"}
-                            </button>
-                        </>
-                    )}
+                            <div className="space-y-5">
+                                {cartItems.map((item) => {
+                                    const variantAvailable =
+                                        item.variant !== null &&
+                                        item.variant.stock >= item.quantity;
 
-                    {/* ======================================
-                        7.2. VISTA DESPUÉS DE CREAR LA ORDEN
-                    ====================================== */}
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 sm:flex-row"
+                                        >
+                                            <img
+                                                src={
+                                                    item.product.imageUrl ||
+                                                    "/placeholder.png"
+                                                }
+                                                alt={item.product.name}
+                                                className="h-36 w-full rounded-xl object-cover sm:h-32 sm:w-28"
+                                            />
 
-                    {order && (
-                        <>
-                            {/* Número de orden y estado */}
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-sm text-gray-500">
-                                        Número de orden
-                                    </p>
+                                            <div className="flex flex-1 flex-col justify-between">
+                                                <div>
+                                                    <h3 className="font-bold text-gray-900">
+                                                        {item.product.name}
+                                                    </h3>
 
-                                    <h2 className="mt-1 text-2xl font-black text-gray-900">
-                                        #{order.id}
-                                    </h2>
-                                </div>
+                                                    {item.variant ? (
+                                                        <div className="mt-2 space-y-1 text-sm text-gray-500">
+                                                            <p>
+                                                                Talla:{" "}
+                                                                <strong className="text-gray-800">
+                                                                    {item.variant.size}
+                                                                </strong>
+                                                            </p>
 
-                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                                    Pendiente de pago
-                                </span>
+                                                            <p>
+                                                                Color:{" "}
+                                                                <strong className="text-gray-800">
+                                                                    {item.variant.color}
+                                                                </strong>
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="mt-2 text-sm font-semibold text-red-600">
+                                                            Falta seleccionar una variante.
+                                                        </p>
+                                                    )}
+
+                                                    <p className="mt-2 text-sm text-gray-500">
+                                                        Cantidad: {item.quantity}
+                                                    </p>
+                                                </div>
+
+                                                <div className="mt-3 flex items-center justify-between gap-3">
+                                                    <span className="text-sm text-gray-500">
+                                                        {formatCOP(item.product.price)} c/u
+                                                    </span>
+
+                                                    <strong className="text-lg text-gray-900">
+                                                        {formatCOP(
+                                                            item.product.price *
+                                                            item.quantity
+                                                        )}
+                                                    </strong>
+                                                </div>
+
+                                                {!variantAvailable && (
+                                                    <p className="mt-2 text-sm font-semibold text-red-600">
+                                                        Producto no disponible en la cantidad seleccionada.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
 
-                            {/* ==================================
-                                7.3. RESUMEN DE PRECIOS
-                            ================================== */}
-
-                            <div className="rounded-2xl border border-gray-100 p-5">
+                            {/* RESUMEN DE PRECIOS */}
+                            <div className="rounded-2xl bg-gray-50 p-5">
                                 <h3 className="font-bold text-gray-900">
-                                    Resumen de tu compra
+                                    Resumen de tu pedido
                                 </h3>
 
-                                <div className="mt-5 space-y-4 text-sm">
+                                <div className="mt-5 flex justify-between text-sm">
+                                    <span className="text-gray-500">
+                                        Subtotal
+                                    </span>
 
-                                    {/* Subtotal antes del descuento */}
-                                    <div className="flex justify-between gap-4">
-                                        <span className="text-gray-500">
-                                            Subtotal
-                                        </span>
-
-                                        <span className="font-semibold text-gray-900">
-                                            {formatCOP(order.subtotal)}
-                                        </span>
-                                    </div>
-
-                                    {/* Dinero descontado por la promoción */}
-                                    <div className="flex justify-between gap-4">
-                                        <span className="text-gray-500">
-                                            Descuento
-                                        </span>
-
-                                        <span className="font-semibold text-green-600">
-                                            -{formatCOP(order.discountAmount)}
-                                        </span>
-                                    </div>
-
-                                    {/* Mostramos el código si la orden lo tiene */}
-                                    {order.promoCode && (
-                                        <div className="flex items-center justify-between gap-4 rounded-xl bg-green-50 p-3">
-                                            <div>
-                                                <p className="text-xs text-green-700">
-                                                    Código promocional aplicado
-                                                </p>
-
-                                                <p className="mt-1 font-black tracking-wider text-green-800">
-                                                    {order.promoCode}
-                                                </p>
-                                            </div>
-
-                                            <span className="text-sm font-bold text-green-700">
-                                                ¡Ahorro aplicado!
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Total definitivo devuelto por el backend */}
-                                    <div className="border-t border-dashed border-gray-200 pt-4">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <span className="font-bold text-gray-900">
-                                                Total a pagar
-                                            </span>
-
-                                            <span className="text-2xl font-black text-gray-900">
-                                                {formatCOP(order.totalAmount)}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    <strong className="text-gray-900">
+                                        {formatCOP(subtotal)}
+                                    </strong>
                                 </div>
+
+                                <div className="mt-3 flex justify-between text-sm">
+                                    <span className="text-gray-500">
+                                        Descuentos
+                                    </span>
+
+                                    <span className="text-gray-600">
+                                        Se calcularán al confirmar tu pedido.
+                                    </span>
+                                </div>
+
+                                <div className="mt-5 flex items-center justify-between border-t border-gray-200 pt-4">
+                                    <span className="font-bold text-gray-900">
+                                        Total provisional
+                                    </span>
+
+                                    <strong className="text-2xl font-black text-gray-900">
+                                        {formatCOP(subtotal)}
+                                    </strong>
+                                </div>
+
+                                <p className="mt-3 text-xs leading-5 text-gray-500">
+                                    Si tienes un beneficio promocional disponible,
+                                    se aplicará al generar tu pedido. El total
+                                    definitivo se mostrará en WhatsApp.
+                                </p>
                             </div>
 
-                            {/* ==================================
-                                7.4. SELECCIONAR MÉTODO DE PAGO
-                            ================================== */}
+                            {/* INFORMACIÓN DE WHATSAPP */}
+                            <div className="rounded-2xl border border-green-100 bg-green-50 p-5">
+                                <h3 className="font-bold text-gray-900">
+                                    Completa tu compra por WhatsApp
+                                </h3>
 
-                            <div>
-                                <label
-                                    htmlFor="payment-method"
-                                    className="font-bold text-gray-900"
-                                >
-                                    ¿Cómo deseas pagar?
-                                </label>
-
-                                <select
-                                    id="payment-method"
-                                    value={provider}
-                                    onChange={(e) =>
-                                        setProvider(e.target.value)
-                                    }
-                                    className="mt-3 w-full rounded-2xl border border-gray-200 bg-white p-4 outline-none transition focus:border-black"
-                                >
-                                    <option value="">
-                                        Selecciona un método de pago
-                                    </option>
-
-                                    {/* Generamos las opciones desde paymentMethods */}
-                                    {Object.entries(paymentMethods).map(
-                                        ([key, method]) => (
-                                            <option key={key} value={key}>
-                                                {method.title}
-                                            </option>
-                                        )
-                                    )}
-                                </select>
+                                <p className="mt-2 text-sm leading-6 text-gray-600">
+                                    Al enviar tu pedido, nuestro equipo recibirá
+                                    los productos y sus variantes. Un asesor te
+                                    ayudará a completar la compra y coordinar
+                                    el pago.
+                                </p>
                             </div>
 
-                            {/* ==================================
-                                7.5. DATOS DEL MÉTODO SELECCIONADO
-                            ================================== */}
-
-                            {provider && (
-                                <div className="rounded-2xl bg-gray-50 p-5">
-                                    <p className="text-sm text-gray-500">
-                                        Datos para realizar tu transferencia
-                                    </p>
-
-                                    <h3 className="mt-2 text-xl font-black text-gray-900">
-                                        {
-                                            paymentMethods[
-                                                provider as keyof typeof paymentMethods
-                                            ].title
-                                        }
-                                    </h3>
-
-                                    <p className="mt-2 text-lg font-bold tracking-wide text-gray-800">
-                                        {
-                                            paymentMethods[
-                                                provider as keyof typeof paymentMethods
-                                            ].number
-                                        }
-                                    </p>
-
-                                    <p className="mt-3 text-sm text-gray-500">
-                                        Transfiere exactamente{" "}
-                                        <strong>
-                                            {formatCOP(order.totalAmount)}
-                                        </strong>
-                                        . Después podrás enviar el comprobante
-                                        por WhatsApp.
-                                    </p>
-                                </div>
+                            {/* VALIDACIÓN Y ENVÍO */}
+                            {invalidItems.length > 0 && (
+                                <p className="text-sm font-semibold text-red-600">
+                                    Revisa los productos que presentan problemas
+                                    de talla, color o disponibilidad antes de continuar.
+                                </p>
                             )}
 
-                            {/* ==================================
-                                7.6. CONTINUAR A WHATSAPP
-                            ================================== */}
-
                             <button
-                                onClick={pay}
-                                disabled={
-                                    processingPayment || !provider
-                                }
-                                className="w-full rounded-full bg-black px-6 py-4 font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={sendOrderToWhatsApp}
+                                disabled={!canCreateOrder}
+                                className="flex w-full items-center justify-center gap-3 rounded-full bg-green-600 px-6 py-4 font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {processingPayment
-                                    ? "Preparando pago..."
-                                    : "Continuar por WhatsApp"}
+                                <span className="text-xl">💬</span>
+
+                                {creatingOrder
+                                    ? "Preparando tu pedido..."
+                                    : "Enviar pedido por WhatsApp"}
                             </button>
 
-                            {/* Aviso sobre la validación del pago */}
                             <p className="text-center text-xs leading-5 text-gray-400">
-                                Tu pedido quedará pendiente hasta que se
-                                verifique el pago y el comprobante.
+                                Tu pedido solo se registrará cuando pulses
+                                el botón de envío. El pago se coordinará
+                                directamente con nuestro asesor.
                             </p>
                         </>
                     )}
