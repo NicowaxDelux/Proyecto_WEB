@@ -1,3 +1,4 @@
+
 import AdminLayout from "../../../components/Admin/AdminLayout";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -17,6 +18,8 @@ type Product = {
   price: number;
   stock: number;
   imageUrl?: string | null;
+  gender?: string | null;
+  category?: string | null;
   variants?: ProductVariant[];
 };
 
@@ -30,6 +33,10 @@ export default function ProductsPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
+
+  // Nuevos campos de clasificación.
+  const [editGender, setEditGender] = useState("UNISEX");
+  const [editCategory, setEditCategory] = useState("OTRA");
 
   // Contiene las variantes existentes y las nuevas aún no guardadas.
   const [editVariants, setEditVariants] = useState<ProductVariant[]>([]);
@@ -99,6 +106,10 @@ export default function ProductsPage() {
     setEditPrice(String(product.price ?? ""));
     setEditImageUrl(product.imageUrl ?? "");
 
+    // Si el producto antiguo no tiene clasificación, asigna valores válidos.
+    setEditGender(product.gender || "UNISEX");
+    setEditCategory(product.category || "OTRA");
+
     setEditVariants(
       (product.variants ?? []).map((variant) => ({
         id: variant.id,
@@ -126,6 +137,8 @@ export default function ProductsPage() {
     setEditDescription("");
     setEditPrice("");
     setEditImageUrl("");
+    setEditGender("UNISEX");
+    setEditCategory("OTRA");
     setEditVariants([]);
     setNewSize("");
     setNewColor("");
@@ -247,6 +260,11 @@ export default function ProductsPage() {
             description: editDescription,
             price: Number(editPrice),
             imageUrl: editImageUrl,
+
+            // Nuevos campos enviados a la API.
+            gender: editGender,
+            category: editCategory,
+
             // Incluye las variantes existentes y las nuevas.
             variants: editVariants,
           }),
@@ -470,6 +488,40 @@ export default function ProductsPage() {
                   onChange={(event) => setEditPrice(event.target.value)}
                   className="w-full rounded-xl border p-3"
                 />
+              </div>
+
+              {/* Clasificación del producto */}
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  Público
+                </label>
+                <select
+                  value={editGender}
+                  onChange={(event) => setEditGender(event.target.value)}
+                  className="w-full rounded-xl border bg-white p-3"
+                >
+                  <option value="HOMBRE">Hombre</option>
+                  <option value="MUJER">Mujer</option>
+                  <option value="UNISEX">Unisex</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  Categoría
+                </label>
+                <select
+                  value={editCategory}
+                  onChange={(event) => setEditCategory(event.target.value)}
+                  className="w-full rounded-xl border bg-white p-3"
+                >
+                  <option value="CAMISETAS">Camisetas</option>
+                  <option value="CAMISAS">Camisas</option>
+                  <option value="SACOS">Sacos</option>
+                  <option value="SUDADERAS">Sudaderas</option>
+                  <option value="PANTALONES">Pantalones</option>
+                  <option value="OTRA">Otra</option>
+                </select>
               </div>
 
               <div className="md:col-span-2">
