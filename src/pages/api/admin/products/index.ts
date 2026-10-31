@@ -1,34 +1,32 @@
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../../lib/prisma";
 import { verifyToken } from "../../../../middleware/auth";
 import { isAdmin } from "../../../../middleware/isAdmin";
 
+const VALID_GENDERS = ["HOMBRE", "MUJER", "UNISEX"];
+
+const VALID_CATEGORIES = [
+  "CAMISETAS",
+  "CAMISAS",
+  "SACOS",
+  "SUDADERAS",
+  "PANTALONES",
+  "OTRA",
+];
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // 1. Verificar que el usuario tenga un token válido.
-  const auth = verifyToken(req, res);
-  if (auth !== true) return;
-
-  // 2. Comprobar que el usuario tenga el rol ADMIN.
-  const admin = isAdmin(req, res);
-  if (admin !== true) return;
-
-  // 3. GET: listar los productos y sus variantes.
+  // GET: consultar productos para la tienda pública.
   if (req.method === "GET") {
     try {
       const products = await prisma.product.findMany({
-        orderBy: {
-          createdAt: "desc",
-        },
-        // Incluimos las variantes para mostrarlas en el panel.
+        orderBy: { createdAt: "desc" },
         include: {
           variants: {
-            orderBy: [
-              { size: "asc" },
-              { color: "asc" },
-            ],
+            orderBy: [{ size: "asc" }, { color: "asc" }],
           },
         },
       });
@@ -43,7 +41,14 @@ export default async function handler(
     }
   }
 
-  // 4. POST: crear un producto y todas sus variantes.
+  // Las operaciones de escritura requieren autenticación de administrador.
+  const auth = verifyToken(req, res);
+  if (auth !== true) return;
+
+  const admin = isAdmin(req, res);
+  if (admin !== true) return;
+
+  // POST: crear producto y sus variantes.
   if (req.method === "POST") {
     try {
       const {
@@ -51,18 +56,18 @@ export default async function handler(
         description,
         price,
         imageUrl,
+        gender,
+        category,
         sizes,
         colors,
       } = req.body;
 
-      // Validar el nombre.
       if (typeof name !== "string" || !name.trim()) {
         return res.status(400).json({
           message: "El nombre es obligatorio",
         });
       }
 
-      // Validar que el precio sea un número válido mayor que cero.
       const numericPrice = Number(price);
 
       if (
@@ -77,7 +82,20 @@ export default async function handler(
         });
       }
 
-      // Validar las tallas y los colores recibidos desde el formulario.
+      // Validar clasificación.
+      if (!VALID_GENDERS.includes(gender)) {
+        return res.status(400).json({
+          message: "Selecciona un género válido",
+        });
+      }
+
+      if (!VALID_CATEGORIES.includes(category)) {
+        return res.status(400).json({
+          message: "Selecciona una categoría válida",
+        });
+      }
+
+      // Validar tallas y colores.
       if (
         !Array.isArray(sizes) ||
         !Array.isArray(colors) ||
@@ -89,15 +107,12 @@ export default async function handler(
         });
       }
 
-      // Limitar el número de opciones para evitar crear accidentalmente
-      // una cantidad excesiva de combinaciones.
       if (sizes.length > 50 || colors.length > 50) {
         return res.status(400).json({
-          message: "Puedes agregar hasta 50 tallas y 50 colores por producto",
+          message: "Puedes agregar hasta 50 tallas y 50 colores",
         });
       }
 
-      // Comprobar que cada opción sea texto válido y no esté vacía.
       const validOptions = (options: unknown[]): boolean =>
         options.every(
           (option) =>
@@ -112,7 +127,7 @@ export default async function handler(
         });
       }
 
-      // Limpiar espacios y eliminar duplicados sin distinguir mayúsculas.
+      // Limpiar espacios y eliminar duplicados.
       const cleanOptions = (options: string[]): string[] => {
         const unique = new Map<string, string>();
 
@@ -131,14 +146,12 @@ export default async function handler(
       const cleanSizes = cleanOptions(sizes as string[]);
       const cleanColors = cleanOptions(colors as string[]);
 
-      // Evitar crear demasiadas variantes por una selección accidental.
       if (cleanSizes.length * cleanColors.length > 500) {
         return res.status(400).json({
           message: "El producto no puede tener más de 500 combinaciones",
         });
       }
 
-      // Crear todas las combinaciones talla + color con stock 0.
       const variants = cleanSizes.flatMap((size) =>
         cleanColors.map((color) => ({
           size,
@@ -147,8 +160,7 @@ export default async function handler(
         }))
       );
 
-      // Una transacción garantiza que el producto y sus variantes
-      // se creen juntos: si algo falla, no queda un producto incompleto.
+      // Crear producto y variantes en una sola transacción.
       const product = await prisma.$transaction(async (tx) => {
         const newProduct = await tx.product.create({
           data: {
@@ -158,15 +170,13 @@ export default async function handler(
                 ? description.trim() || null
                 : null,
             price: numericPrice,
-
-            // El stock real se administrará en ProductVariant.
-            // Dejamos en cero el campo antiguo del producto.
             stock: 0,
-
             imageUrl:
               typeof imageUrl === "string"
                 ? imageUrl.trim() || null
                 : null,
+            gender,
+            category,
           },
         });
 
@@ -179,7 +189,6 @@ export default async function handler(
           })),
         });
 
-        // Devolvemos el producto con las variantes que acabamos de crear.
         return tx.product.findUniqueOrThrow({
           where: { id: newProduct.id },
           include: {
@@ -193,7 +202,7 @@ export default async function handler(
         product,
       });
     } catch (error) {
-      console.error("Error creando producto y variantes:", error);
+      console.error("Error creando producto:", error);
 
       return res.status(500).json({
         message: "Error creando el producto y sus variantes",
@@ -201,7 +210,6 @@ export default async function handler(
     }
   }
 
-  // 5. Rechazar los métodos HTTP que no soportamos.
   res.setHeader("Allow", ["GET", "POST"]);
 
   return res.status(405).json({
