@@ -31,6 +31,8 @@ model Product {
   price       Int
   stock       Int              @default(0)
   imageUrl    String?
+  gender      String?          // HOMBRE, MUJER o UNISEX
+  category    String?          // CAMISETAS, CAMISAS, SACOS, etc.
   createdAt   DateTime         @default(now())
 
   // Variantes disponibles de este producto.
