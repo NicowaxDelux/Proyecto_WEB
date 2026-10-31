@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 
@@ -19,7 +18,10 @@ type Product = {
 
 type ProductCardProps = {
   product: Product;
-  addToCart: (productId: number, variantId: number) => Promise<void>;
+  addToCart: (
+    productId: number,
+    variantId: number
+  ) => Promise<void>;
 };
 
 export default function ProductCard({
@@ -76,11 +78,14 @@ export default function ProductCard({
       whileHover={{ y: 5 }}
       className="overflow-hidden rounded-2xl bg-white shadow-md transition-shadow hover:shadow-xl"
     >
-      <img
-        src={product.imageUrl || "/placeholder.png"}
-        alt={product.name}
-        className="h-60 w-full object-cover md:h-72"
-      />
+      {/* Imagen del producto: ahora se muestra completa */}
+      <div className="flex h-60 w-full items-center justify-center overflow-hidden bg-gray-50 p-3 md:h-72">
+        <img
+          src={product.imageUrl || "/placeholder.png"}
+          alt={product.name}
+          className="h-full w-full object-contain"
+        />
+      </div>
 
       <div className="p-4">
         <h2 className="text-lg font-semibold text-gray-900">
