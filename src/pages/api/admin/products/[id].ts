@@ -1,7 +1,20 @@
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../../lib/prisma";
 import { verifyToken } from "../../../../middleware/auth";
 import { isAdmin } from "../../../../middleware/isAdmin";
+
+// Opciones permitidas para clasificar los productos.
+const VALID_GENDERS = ["HOMBRE", "MUJER", "UNISEX"];
+
+const VALID_CATEGORIES = [
+  "CAMISETAS",
+  "CAMISAS",
+  "SACOS",
+  "SUDADERAS",
+  "PANTALONES",
+  "OTRA",
+];
 
 export default async function handler(
   req: NextApiRequest,
@@ -10,6 +23,7 @@ export default async function handler(
   // Solo permitimos editar o eliminar productos.
   if (req.method !== "PUT" && req.method !== "DELETE") {
     res.setHeader("Allow", ["PUT", "DELETE"]);
+
     return res.status(405).json({
       message: "Método no permitido",
     });
@@ -22,7 +36,9 @@ export default async function handler(
   const admin = isAdmin(req, res);
   if (admin !== true) return;
 
+  // Obtenemos y validamos el ID del producto.
   const rawId = req.query.id;
+
   const productId = Number(
     Array.isArray(rawId) ? rawId[0] : rawId
   );
@@ -34,7 +50,9 @@ export default async function handler(
   }
 
   try {
+    // ==========================================
     // ELIMINAR PRODUCTO
+    // ==========================================
     if (req.method === "DELETE") {
       try {
         await prisma.product.delete({
@@ -62,22 +80,26 @@ export default async function handler(
       }
     }
 
+    // ==========================================
     // DATOS RECIBIDOS DEL FORMULARIO
+    // ==========================================
     const {
       name,
       description,
       price,
       imageUrl,
+      gender,
+      category,
       variants,
     } = req.body ?? {};
 
-    // El stock general ya no es obligatorio:
-    // las existencias se administran por variante.
+    // Validamos nombre y precio.
     if (
       typeof name !== "string" ||
       !name.trim() ||
       price === "" ||
       price === undefined ||
+      price === null ||
       !Number.isFinite(Number(price)) ||
       Number(price) < 0
     ) {
@@ -86,6 +108,7 @@ export default async function handler(
       });
     }
 
+    // Validamos descripción.
     if (
       description !== undefined &&
       description !== null &&
@@ -96,6 +119,7 @@ export default async function handler(
       });
     }
 
+    // Validamos imagen.
     if (
       imageUrl !== undefined &&
       imageUrl !== null &&
@@ -106,12 +130,27 @@ export default async function handler(
       });
     }
 
+    // Validamos público y categoría.
+    if (!VALID_GENDERS.includes(gender)) {
+      return res.status(400).json({
+        message: "Selecciona un público válido",
+      });
+    }
+
+    if (!VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({
+        message: "Selecciona una categoría válida",
+      });
+    }
+
+    // Validamos que las variantes sean una lista.
     if (variants !== undefined && !Array.isArray(variants)) {
       return res.status(400).json({
         message: "La lista de variantes no es válida",
       });
     }
 
+    // Buscamos el producto y sus variantes actuales.
     const currentProduct = await prisma.product.findUnique({
       where: { id: productId },
       include: { variants: true },
@@ -123,7 +162,9 @@ export default async function handler(
       });
     }
 
-    // Validamos las variantes antes de escribir en la base de datos.
+    // ==========================================
+    // VALIDACIÓN DE VARIANTES
+    // ==========================================
     const normalizedVariants: Array<{
       id?: number;
       size: string;
@@ -155,6 +196,7 @@ export default async function handler(
         });
       }
 
+      // Evitamos combinaciones repetidas.
       const key = `${size.toLowerCase()}::${color.toLowerCase()}`;
 
       if (combinations.has(key)) {
@@ -187,7 +229,7 @@ export default async function handler(
       });
     }
 
-    // Comprobamos que todos los IDs existentes sean de este producto.
+    // Comprobamos que todos los IDs existentes pertenezcan al producto.
     const existingIds = normalizedVariants
       .filter((item) => item.id !== undefined)
       .map((item) => item.id as number);
@@ -232,8 +274,7 @@ export default async function handler(
       }
     }
 
-    // Si hay variantes en el formulario, el stock general será
-    // la suma de sus existencias. No se exige enviarlo por separado.
+    // Calculamos el stock total a partir de las variantes.
     const totalStock =
       variants !== undefined
         ? normalizedVariants.reduce(
@@ -242,28 +283,39 @@ export default async function handler(
           )
         : currentProduct.stock;
 
-    // Actualizamos el producto y sus variantes en una transacción.
+    // ==========================================
+    // ACTUALIZAR PRODUCTO Y VARIANTES
+    // ==========================================
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: { id: productId },
         data: {
           name: name.trim(),
+
           description:
             description === undefined
               ? currentProduct.description
               : description?.trim() || null,
+
           price: Number(price),
+
           imageUrl:
             imageUrl === undefined
               ? currentProduct.imageUrl
               : imageUrl?.trim() || null,
+
+          // Nuevos campos de clasificación.
+          gender,
+          category,
+
+          // Conservamos el inventario calculado.
           stock: totalStock,
         },
       });
 
       for (const item of normalizedVariants) {
         if (item.id !== undefined) {
-          // Actualizamos la cantidad de una variante existente.
+          // Actualizamos el stock de una variante existente.
           await tx.productVariant.update({
             where: { id: item.id },
             data: { stock: item.stock },
@@ -293,7 +345,7 @@ export default async function handler(
       }
     });
 
-    // Devolvemos el producto actualizado con su inventario.
+    // Devolvemos el producto actualizado con sus variantes.
     const updatedProduct = await prisma.product.findUnique({
       where: { id: productId },
       include: {
