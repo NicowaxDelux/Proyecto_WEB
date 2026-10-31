@@ -100,7 +100,7 @@ export default function Checkout() {
         loadCart();
     }, []);
 
-    // Calcular el subtotal de los productos mostrados.
+    // Calcular el valor total de los productos.
     const subtotal = cartItems.reduce(
         (total, item) =>
             total + item.product.price * item.quantity,
@@ -292,7 +292,7 @@ export default function Checkout() {
                                 </p>
                             </div>
 
-                            <div className="space-y-5">
+                            <div className="space-y-4">
                                 {cartItems.map((item) => {
                                     const variantAvailable =
                                         item.variant !== null &&
@@ -301,8 +301,9 @@ export default function Checkout() {
                                     return (
                                         <div
                                             key={item.id}
-                                            className="flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 sm:flex-row"
+                                            className="flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 transition hover:border-gray-200 sm:flex-row sm:items-center"
                                         >
+                                            {/* IMAGEN */}
                                             <img
                                                 src={
                                                     item.product.imageUrl ||
@@ -312,6 +313,7 @@ export default function Checkout() {
                                                 className="h-36 w-full rounded-xl object-cover sm:h-32 sm:w-28"
                                             />
 
+                                            {/* INFORMACIÓN DEL PRODUCTO */}
                                             <div className="flex flex-1 flex-col justify-between">
                                                 <div>
                                                     <h3 className="font-bold text-gray-900">
@@ -344,72 +346,73 @@ export default function Checkout() {
                                                         Cantidad: {item.quantity}
                                                     </p>
                                                 </div>
-
-                                                <div className="mt-3 flex items-center justify-between gap-3">
-                                                    <span className="text-sm text-gray-500">
-                                                        {formatCOP(item.product.price)} c/u
-                                                    </span>
-
-                                                    <strong className="text-lg text-gray-900">
-                                                        {formatCOP(
-                                                            item.product.price *
-                                                            item.quantity
-                                                        )}
-                                                    </strong>
-                                                </div>
-
-                                                {!variantAvailable && (
-                                                    <p className="mt-2 text-sm font-semibold text-red-600">
-                                                        Producto no disponible en la cantidad seleccionada.
-                                                    </p>
-                                                )}
                                             </div>
+
+                                            {/* PRECIO ÚNICO DEL PRODUCTO */}
+                                            <div className="flex items-center justify-between border-t border-gray-100 pt-3 sm:min-w-[135px] sm:justify-end sm:border-0 sm:pt-0">
+                                                <span className="text-sm text-gray-500 sm:hidden">
+                                                    Total
+                                                </span>
+
+                                                <strong className="text-lg font-bold text-gray-900">
+                                                    {formatCOP(
+                                                        item.product.price *
+                                                        item.quantity
+                                                    )}
+                                                </strong>
+                                            </div>
+
+                                            {!variantAvailable && (
+                                                <p className="text-sm font-semibold text-red-600 sm:hidden">
+                                                    Producto no disponible en la cantidad seleccionada.
+                                                </p>
+                                            )}
+
+                                            {!variantAvailable && (
+                                                <p className="hidden text-sm font-semibold text-red-600 sm:block">
+                                                    Producto no disponible en la cantidad seleccionada.
+                                                </p>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
 
                             {/* RESUMEN DE PRECIOS */}
-                            <div className="rounded-2xl bg-gray-50 p-5">
-                                <h3 className="font-bold text-gray-900">
-                                    Resumen de tu pedido
-                                </h3>
+                            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 md:p-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-gray-900">
+                                        Resumen de tu pedido
+                                    </h3>
 
-                                <div className="mt-5 flex justify-between text-sm">
-                                    <span className="text-gray-500">
-                                        Subtotal
+                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-500">
+                                        {cartItems.length} producto(s)
                                     </span>
+                                </div>
 
-                                    <strong className="text-gray-900">
+                                <div className="mt-5 flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Total estimado
+                                        </p>
+
+                                        <p className="mt-1 text-xs text-gray-400">
+                                            Antes de aplicar descuentos
+                                        </p>
+                                    </div>
+
+                                    <strong className="text-2xl font-black tracking-tight text-gray-900 md:text-3xl">
                                         {formatCOP(subtotal)}
                                     </strong>
                                 </div>
 
-                                <div className="mt-3 flex justify-between text-sm">
-                                    <span className="text-gray-500">
-                                        Descuentos
-                                    </span>
-
-                                    <span className="text-gray-600">
-                                        Se calcularán al confirmar tu pedido.
-                                    </span>
+                                <div className="mt-4 border-t border-gray-200 pt-4">
+                                    <p className="text-xs leading-5 text-gray-500">
+                                        Si tienes un beneficio promocional disponible,
+                                        se aplicará al generar tu pedido. El total
+                                        definitivo se mostrará en WhatsApp.
+                                    </p>
                                 </div>
-
-                                <div className="mt-5 flex items-center justify-between border-t border-gray-200 pt-4">
-                                    <span className="font-bold text-gray-900">
-                                        Total provisional
-                                    </span>
-
-                                    <strong className="text-2xl font-black text-gray-900">
-                                        {formatCOP(subtotal)}
-                                    </strong>
-                                </div>
-
-                                <p className="mt-3 text-xs leading-5 text-gray-500">
-                                    Si tienes un beneficio promocional disponible,
-                                    se aplicará al generar tu pedido. El total
-                                    definitivo se mostrará en WhatsApp.
-                                </p>
                             </div>
 
                             {/* INFORMACIÓN DE WHATSAPP */}
