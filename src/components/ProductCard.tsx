@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { motion } from "framer-motion";
 
@@ -78,8 +79,8 @@ export default function ProductCard({
       whileHover={{ y: 5 }}
       className="overflow-hidden rounded-2xl bg-white shadow-md transition-shadow hover:shadow-xl"
     >
-      {/* Imagen del producto: ahora se muestra completa */}
-      <div className="flex h-60 w-full items-center justify-center overflow-hidden bg-gray-50 p-3 md:h-72">
+      {/* Imagen del producto */}
+      <div className="flex h-64 w-full items-center justify-center overflow-hidden bg-white p-1 md:h-80">
         <img
           src={product.imageUrl || "/placeholder.png"}
           alt={product.name}
