@@ -1,4 +1,3 @@
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
 import { verifyToken } from "../../../middleware/auth";
@@ -10,6 +9,7 @@ export default async function handler(
     // Este endpoint solamente acepta solicitudes POST.
     if (req.method !== "POST") {
         res.setHeader("Allow", ["POST"]);
+
         return res.status(405).json({
             message: "Método no permitido",
         });
@@ -17,6 +17,7 @@ export default async function handler(
 
     // Verificar que el usuario tenga una sesión válida.
     const auth = verifyToken(req, res);
+
     if (auth !== true) return;
 
     const user = (req as any).user;
@@ -30,10 +31,10 @@ export default async function handler(
 
     try {
         // Toda la operación se realiza en una transacción.
-        // Si algo falla, no se crea una orden incompleta.
-        const order = await prisma.$transaction(async (tx) => {
+        // Si algo falla, no se guarda una orden incompleta.
+        const result = await prisma.$transaction(async (tx) => {
 
-            // 1. Consultar el carrito con sus productos y variantes.
+            // 1. Consultar el carrito con productos y variantes.
             const cartItems = await tx.cartItem.findMany({
                 where: { userId },
                 include: {
@@ -82,8 +83,6 @@ export default async function handler(
                 }
 
                 // 4. Reservar el stock de forma atómica.
-                // Esto evita que dos clientes compren simultáneamente
-                // las mismas últimas unidades.
                 const stockUpdate = await tx.productVariant.updateMany({
                     where: {
                         id: item.variant.id,
@@ -142,7 +141,7 @@ export default async function handler(
                             quantity: item.quantity,
                             unitPrice: item.product.price,
 
-                            // Guardamos una copia de la talla y el color.
+                            // Guardamos una copia de talla y color.
                             size: item.variant!.size,
                             color: item.variant!.color,
                         })),
@@ -158,7 +157,19 @@ export default async function handler(
                 },
             });
 
-            // 8. Consumir el beneficio si se utilizó.
+            // 8. Crear automáticamente el registro del pago.
+            // El cliente coordinará el pago con el asesor por WhatsApp.
+            const payment = await tx.payment.create({
+                data: {
+                    orderId: newOrder.id,
+                    provider: "WHATSAPP",
+                    amount: newOrder.totalAmount,
+                    status: "PENDING",
+                    reference: `ORD-${newOrder.id}`,
+                },
+            });
+
+            // 9. Consumir el beneficio si se utilizó.
             if (promoCode === "STYLE11") {
                 await tx.user.update({
                     where: { id: userId },
@@ -168,18 +179,22 @@ export default async function handler(
                 });
             }
 
-            // 9. Vaciar el carrito después de crear la orden.
+            // 10. Vaciar el carrito después de crear la orden y el pago.
             await tx.cartItem.deleteMany({
                 where: { userId },
             });
 
-            return newOrder;
+            // Devolvemos la orden junto con su registro de pago.
+            return {
+                ...newOrder,
+                payment,
+            };
         });
 
-        // Orden creada correctamente.
+        // Orden y pago creados correctamente.
         return res.status(201).json({
             message: "Pedido creado correctamente",
-            ...order,
+            ...result,
         });
 
     } catch (error: any) {
