@@ -83,9 +83,18 @@ export default function Navbar(){
                     {/* SI ESTA LOGUEADO */}
 
                     {isLoggedIn && (
-                        <button onClick={handleLogout} className="text-sm md:text-base hover:text-black text-gray-500">
-                            Cerrar sesión
-                        </button>
+
+                        <>
+                            <Link
+                                href="/my-orders"
+                                className="text-sm md:text-base hover:text-black text-gray-500">
+                                Mis pedidos
+                            </Link>
+
+                            <button onClick={handleLogout} className="text-sm md:text-base hover:text-black text-gray-500">
+                                Cerrar sesión
+                            </button>
+                        </>
                     )}
 
                 </div>
