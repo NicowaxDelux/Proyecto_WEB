@@ -1,5 +1,5 @@
 import AdminLayout from "../../../components/Admin/AdminLayout";
-import {useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 export default function OrdersPage() {
@@ -8,24 +8,29 @@ export default function OrdersPage() {
 
     const loadOrders = async () => {
 
-        const  token = localStorage.getItem("token");
+        const token = localStorage.getItem("token");
 
         const res = await fetch("/api/admin/orders", {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
         });
 
         const data = await res.json();
 
         if (res.ok) {
+            // IMPORTANTE: tu endpoint devuelve directamente el arreglo.
             setOrders(data);
         }
     };
-    
-    const updateOrderStatus = async (orderId: number, newStatus: string) => {
+
+    const updateOrderStatus = async (
+        orderId: number,
+        newStatus: string
+    ) => {
 
         const token = localStorage.getItem("token");
+
         try {
 
             const res = await fetch(`/api/admin/orders/${orderId}`, {
@@ -40,22 +45,24 @@ export default function OrdersPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                toast.error("Error al actualizar el estado del pedido", data);
+                toast.error(
+                    data.message || "Error al actualizar el estado del pedido"
+                );
 
                 return;
             }
 
-            // Actualizar solamente el pedido
-            // que acabamos de modificar.
+            // Actualizar solamente el pedido que acabamos de modificar.
+            setOrders((currentOrders) => currentOrders.map((order) =>
 
-            setOrders((currentOrders) => currentOrders.map((order) => 
-
-                order.id === orderId? {
+                order.id === orderId ? {
                     ...order,
                     status: data.order.status
                 }
                 : order
             ));
+
+            toast.success("Estado del pedido actualizado");
 
         } catch (error) {
 
@@ -71,7 +78,7 @@ export default function OrdersPage() {
 
     return (
         <AdminLayout>
-            
+
             <div className="mb-10">
 
                 <h1 className="text-4xl font-semibold">
@@ -81,7 +88,7 @@ export default function OrdersPage() {
                 <p className="text-gray-500 mt-2">
                     Gestiona los pedidos realizados en la tienda
                 </p>
-    
+
             </div>
 
             <div className="bg-white border rounded-2xl overflow-hidden">
@@ -92,23 +99,23 @@ export default function OrdersPage() {
 
                         <tr className="text-left">
 
-                            <th className= "p-5">
+                            <th className="p-5">
                                 Pedido
                             </th>
 
-                            <th className= "p-5">
+                            <th className="p-5">
                                 Cliente
                             </th>
 
-                            <th className= "p-5">
+                            <th className="p-5">
                                 Total
                             </th>
-                            
-                            <th className= "p-5">
+
+                            <th className="p-5">
                                 Estado
                             </th>
 
-                            <th className= "p-5">
+                            <th className="p-5">
                                 Fecha
                             </th>
 
@@ -118,15 +125,15 @@ export default function OrdersPage() {
 
                     <tbody>
 
-                        {orders.map((order)=> (
+                        {orders.map((order) => (
 
                             <tr key={order.id} className="border-b hover:bg-gray-50">
 
-                                <td className= "p-5 font-medium">
+                                <td className="p-5 font-medium">
                                     #{order.id}
                                 </td>
 
-                                <td className= "p-5">
+                                <td className="p-5">
 
                                     <p className="font-medium">
                                         {order.user?.name || "Cliente"}
@@ -138,7 +145,7 @@ export default function OrdersPage() {
 
                                 </td>
 
-                                <td className= "p-5 font-medium">
+                                <td className="p-5 font-medium">
 
                                     ${order.totalAmount.toLocaleString()}
 
@@ -161,11 +168,15 @@ export default function OrdersPage() {
                                             PENDIENTE
                                         </option>
 
-                                        <option value="PENDING_PAYMENT">
-                                            VIAJANDO AL DESTINO
+                                        <option value="PREPARING">
+                                            EN PREPARACIÓN
                                         </option>
 
-                                        <option value="PAID">
+                                        <option value="SHIPPED">
+                                            ENVIADO
+                                        </option>
+
+                                        <option value="DELIVERED">
                                             ENTREGADO
                                         </option>
 
@@ -176,9 +187,9 @@ export default function OrdersPage() {
                                     </select>
 
                                 </td>
-                             
-                                <td className= "p-5 text-gray-500">
-                                
+
+                                <td className="p-5 text-gray-500">
+
                                     {new Date(order.createdAt).toLocaleDateString()}
 
                                 </td>
@@ -191,8 +202,8 @@ export default function OrdersPage() {
 
                 </table>
             </div>
-            
+
         </AdminLayout>
-    )
+    );
 
 }
