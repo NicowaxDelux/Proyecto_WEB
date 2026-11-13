@@ -163,3 +163,29 @@ model Payment {
 
   @@index([orderId])
 }
+
+model StoreSettings {
+  id           Int      @id @default(autoincrement())
+
+  // Identidad de la tienda
+  storeName    String   @default("Martha Store")
+  logoUrl      String?
+  faviconUrl   String?
+  heroImageUrl String?
+
+  // Información de contacto
+  contactEmail String?
+  whatsapp     String?
+  instagramUrl String?
+  facebookUrl  String?
+
+  // Ubicación (funcionalidad futura)
+  location     String?
+
+  // Información comercial
+  description  String?  @db.Text
+  shippingInfo String?  @db.Text
+  returnPolicy String?  @db.Text
+
+  updatedAt    DateTime @updatedAt
+}
