@@ -4,6 +4,7 @@ import Hero from "../components/Hero";
 import ProductCard from "../components/ProductCard";
 import toast from "react-hot-toast";
 import { useCart } from "../context/CartContext";
+import Footer from "../components/Footer";
 
 type ProductVariant = {
   id: number;
@@ -314,6 +315,10 @@ export default function Home() {
           </div>
         )}
       </section>
+
+        {/* FOOTER DINÁMICO */}
+        <Footer />
+
     </div>
   );
 }
