@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import BackButton from "../components/BackButton";
@@ -45,6 +44,9 @@ export default function Checkout() {
     const [loading, setLoading] = useState(true);
     const [creatingOrder, setCreatingOrder] = useState(false);
     const [error, setError] = useState("");
+    // Número de WhatsApp configurado por el administrador
+    const [storeWhatsapp, setStoreWhatsapp] = useState("");
+    const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
 
     const { refreshCart } = useCart();
 
@@ -100,6 +102,67 @@ export default function Checkout() {
         loadCart();
     }, []);
 
+
+// ==========================================
+// CARGAR WHATSAPP OFICIAL DE LA TIENDA
+// ==========================================
+
+    useEffect(() => {
+
+        let cancelled = false;
+
+        const loadStoreWhatsapp = async () => {
+
+            try {
+
+                const res = await fetch("/api/store/settings", {
+                    cache: "no-store",
+                });
+
+                if (!res.ok) {
+                    throw new Error(
+                        "No se pudo consultar la configuración"
+                    );
+                }
+
+                const data = await res.json();
+
+                if (!cancelled) {
+                    setStoreWhatsapp(data.whatsapp || "");
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Error cargando WhatsApp de la tienda:",
+                    error
+                );
+
+                if (!cancelled) {
+                    toast.error(
+                        "No se pudo cargar el contacto de la tienda"
+                    );
+                }
+
+            } finally {
+
+                if (!cancelled) {
+                    setLoadingWhatsapp(false);
+                }
+
+            }
+
+        };
+
+        void loadStoreWhatsapp();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, []);
+
+
     // Calcular el valor total de los productos.
     const subtotal = cartItems.reduce(
         (total, item) =>
@@ -116,14 +179,27 @@ export default function Checkout() {
             item.quantity <= 0
     );
 
+    // Normalizar el número para utilizarlo en wa.me
+    const whatsappNumber = storeWhatsapp.replace(/\D/g, "");
+
+    // Comprobar que existe un número configurado
+    const whatsappReady =
+        !loadingWhatsapp && whatsappNumber.length >= 10;
+
     const canCreateOrder =
         cartItems.length > 0 &&
         invalidItems.length === 0 &&
-        !creatingOrder;
+        !creatingOrder &&
+        whatsappReady;
 
     // Crear la orden únicamente cuando el cliente lo solicite.
     const sendOrderToWhatsApp = async () => {
         if (creatingOrder) return;
+
+        if (!whatsappReady) {
+            toast.error("WhatsApp no está configurado. Intenta nuevamente más tarde.");
+            return;
+        }
 
         if (cartItems.length === 0) {
             toast.error("Tu carrito está vacío.");
@@ -200,8 +276,8 @@ export default function Checkout() {
                 "¡Gracias! 😊",
             ].join("\n");
 
-            const whatsappUrl =
-                `https://wa.me/573103990818?text=${encodeURIComponent(messageText)}`;
+            // WhatsApp oficial obtenido desde Configuración
+            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(messageText)}`;
 
             // Sincronizar el contexto del carrito.
             await refreshCart();
@@ -437,6 +513,13 @@ export default function Checkout() {
                                 </p>
                             )}
 
+                            {!loadingWhatsapp && !whatsappReady && (
+                                <p className="rounded-xl bg-yellow-50 p-4 text-sm font-medium text-yellow-800">
+                                    El contacto de WhatsApp de la tienda no está disponible.
+                                    Por favor, intenta nuevamente más tarde.
+                                </p>
+                            )}
+
                             <button
                                 onClick={sendOrderToWhatsApp}
                                 disabled={!canCreateOrder}
@@ -445,6 +528,8 @@ export default function Checkout() {
                                 <span className="text-xl">💬</span>
 
                                 {creatingOrder
+                                    ? "Cargando contacto ..."
+                                    : creatingOrder
                                     ? "Preparando tu pedido..."
                                     : "Enviar pedido por WhatsApp"}
                             </button>
