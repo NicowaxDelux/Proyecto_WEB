@@ -41,6 +41,8 @@ export default function MyOrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [storeWhatsapp, setStoreWhatsapp] = useState("");
+    const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
 
     // Formatear valores en pesos colombianos.
     const formatPrice = (amount: number) => {
@@ -135,6 +137,130 @@ export default function MyOrdersPage() {
     useEffect(() => {
         loadOrders();
     }, []);
+
+    useEffect(() => {
+
+        let cancelled = false;
+
+        const loadWhatsapp = async () => {
+
+            try {
+
+                const res = await fetch("/api/store/settings", {
+                    cache: "no-store",
+                });
+
+                if (!res.ok) {
+                    throw new Error(
+                        "No se pudo cargar WhatsApp"
+                    );
+                }
+
+                const data = await res.json();
+
+                if (!cancelled) {
+                    setStoreWhatsapp(data.whatsapp || "");
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Error consultando WhatsApp:",
+                    error
+                );
+
+            } finally {
+
+                if (!cancelled) {
+                    setLoadingWhatsapp(false);
+                }
+
+            }
+
+        };
+
+        void loadWhatsapp();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, []);
+
+
+
+    // ==========================================
+    // CONTINUAR PEDIDO EXISTENTE POR WHATSAPP
+    // ==========================================
+
+    const continueOrderWhatsapp = (order: Order) => {
+
+        // No permitir continuar pedidos que ya no están pendientes.
+        if (order.status !== "PENDING") {
+            return;
+        }
+
+        // Comprobar todos los pagos, no solo el más reciente.
+        const hasConfirmedPayment = order.payment?.some(
+            (payment) => payment.status === "PAID"
+        );
+
+        if (hasConfirmedPayment) {
+            return;
+        }
+
+        // Preparar número internacional sin espacios ni símbolos.
+        const whatsappNumber = storeWhatsapp.replace(/\D/g, "");
+
+        if (whatsappNumber.length < 10) {
+            alert(
+                "El WhatsApp de la tienda no está disponible."
+            );
+            return;
+        }
+
+        // Construir el detalle usando los datos originales del pedido.
+        const productLines = order.orderItems.flatMap(
+            (item, index) => [
+                `${index + 1}. ${item.product.name}`,
+                `   Talla: ${item.size || "No especificada"}`,
+                `   Color: ${item.color || "No especificado"}`,
+                `   Cantidad: ${item.quantity}`,
+                `   Precio: ${formatPrice(item.unitPrice * item.quantity)}`,
+                "",
+            ]
+        );
+
+        const messageText = [
+            "🛍️ CONTINUAR PEDIDO - MARTHA STORE",
+            "━━━━━━━━━━━━━━━━━━",
+            `🧾 Número de pedido: #${order.id}`,
+            "",
+            "📦 DETALLE DE MI PEDIDO",
+            ...productLines,
+            "━━━━━━━━━━━━━━━━━━",
+            `💰 Subtotal: ${formatPrice(order.subtotal)}`,
+            `🎁 Descuento: -${formatPrice(order.discountAmount)}`,
+            ...(order.promoCode
+                ? [`🏷️ Código aplicado: ${order.promoCode}`]
+                : []),
+            `✅ TOTAL: ${formatPrice(order.totalAmount)}`,
+            "━━━━━━━━━━━━━━━━━━",
+            "",
+            "Hola 👋",
+            `Quisiera continuar con mi pedido #${order.id}.`,
+            "¿Podrían ayudarme con el proceso de pago?",
+            "",
+            "¡Gracias! 😊",
+        ].join("\n");
+
+        // Abrir WhatsApp sin crear otra orden.
+        const whatsappUrl =
+            `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(messageText)}`;
+
+        window.location.href = whatsappUrl;
+    };
+
 
     return (
         <>
@@ -369,6 +495,49 @@ export default function MyOrdersPage() {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* ==========================================
+                                        CONTINUAR COMPRA POR WHATSAPP
+                                        ========================================== */}
+
+                                        {order.status === "PENDING" &&
+                                        !order.payment?.some(
+                                            (payment) => payment.status === "PAID"
+                                        ) && (
+
+                                            <div className="border-t border-gray-100 bg-white p-5 md:p-6">
+
+                                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+                                                    <div>
+                                                        <h3 className="font-semibold text-gray-900">
+                                                            ¿Aún no has terminado tu compra?
+                                                        </h3>
+
+                                                        <p className="mt-1 text-sm text-gray-500">
+                                                            Continúa tu pedido por WhatsApp sin volver a comprar.
+                                                        </p>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => continueOrderWhatsapp(order)}
+                                                        disabled={
+                                                            loadingWhatsapp ||
+                                                            storeWhatsapp.replace(/\D/g, "").length < 10
+                                                        }
+                                                        className="rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {loadingWhatsapp
+                                                            ? "Cargando contacto..."
+                                                            : "Continuar por WhatsApp"}
+                                                    </button>
+
+                                                </div>
+
+                                            </div>
+                                        )}
+
                                     </section>
                                 );
                             })}
